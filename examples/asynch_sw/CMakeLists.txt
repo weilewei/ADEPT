@@ -6,7 +6,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # this is a hack and this lib should be detected and set in the main CMakeLists.txt and not here
-set(STDEXEC_PATH /global/homes/m/mhaseeb/repos/stdexec/install)
+set(STDEXEC_PATH /global/homes/w/wwei/install/stdexec/)
+set(CMAKE_CXX_FLAGS "--experimental-stdpar -std=c++20 --gcc-toolchain=/opt/cray/pe/gcc/12.2.0/bin/")
 
 include_directories(${STDEXEC_PATH}/include)
 link_directories(${STD_EXEC_PATH}/lib64)

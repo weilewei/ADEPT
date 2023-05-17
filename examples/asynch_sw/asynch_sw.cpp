@@ -88,7 +88,7 @@ main(int argc, char* argv[])
   std::unique_ptr<ADEPT::driver> sw_driver;
 
   // vector for cpu counters
-  std::vector<int> works(THREAD_POOL_SIZE);
+  std::vector<int> works(THREAD_POOL_SIZE, 0);
 
   // initialize a thread pool
   exec::static_thread_pool ctx{THREAD_POOL_SIZE};
@@ -200,20 +200,10 @@ main(int argc, char* argv[])
   // bulk wait for kernel to finish
 
   sender auto kernel_wait =
-  /* FIXME: Getting the following linker error when using bulk.
-  undefined reference to `stdexec::get_completion_scheduler<stdexec::__receivers::set_value_t>'
-
-  transfer_just(sch)
-  | bulk(THREAD_POOL_SIZE, [&](size_t k)
+  bulk(adept_launch, THREAD_POOL_SIZE, [&](size_t k)
   {
     while(sw_driver->kernel_done() != true)
       works[k]++;
-  });
-  * work around using this */
-  then(adept_launch, [&]()
-  {
-    while(sw_driver->kernel_done() != true)
-      works[0]++;
   });
 
 // ------------------------------------------------------------------------------------------ //
@@ -228,11 +218,7 @@ main(int argc, char* argv[])
 
   // bulk wait for dth to finish
   sender auto dth_wait =
-  /* FIXME: Getting the following linker error when using bulk.
-  undefined reference to `stdexec::get_completion_scheduler<stdexec::__receivers::set_value_t>'
-
-  transfer_just(sch)
-  | bulk(THREAD_POOL_SIZE, [&](size_t k)
+  bulk(dth_launch, THREAD_POOL_SIZE, [&](size_t k)
   {
     while(sw_driver->dth_done() != true)
       works[k]++;
@@ -245,14 +231,6 @@ main(int argc, char* argv[])
       total_work += work;
 
     return total_work;
-  });
-  *
-  * work around using this */
-  then(dth_launch, [&]()
-  {
-    while(sw_driver->dth_done() != true)
-      works[0]++;
-    return works[0];
   });
 
   auto [work_cpu] = sync_wait(std::move(dth_wait)).value();
