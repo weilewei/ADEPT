@@ -47,7 +47,7 @@ int main(int argc, char* argv[]){
   string queFile = argv[2];
   string out_file = argv[3];
   string res_file;
-  
+
   if(verify == true) res_file = argv[4];
 
     vector<string> ref_sequences, que_sequences;
@@ -92,7 +92,7 @@ int main(int argc, char* argv[]){
                     if(lineR.length() > largestA)
                         largestA = lineR.length();
 
-                    if(lineQ.length() > largestA)
+                    if(lineQ.length() > largestB)
                         largestB = lineQ.length();
                 }
             }
@@ -122,7 +122,7 @@ int main(int argc, char* argv[]){
     std::cout << std::endl << "STATUS: Writing results..." << std::endl;
 
     // write the results header
-    results_file << "alignment_scores\t"     << "reference_begin_location\t" << "reference_end_location\t" 
+    results_file << "alignment_scores\t"     << "reference_begin_location\t" << "reference_end_location\t"
                  << "query_begin_location\t" << "query_end_location"         << std::endl;
 
     for(int gpus = 0; gpus < tot_gpus; gpus++){
@@ -148,12 +148,12 @@ int main(int argc, char* argv[]){
 
     if(verify == true){
     	if(!verify_correctness(res_file, out_file)) return_state = -1;
-    
+
    	 if(return_state == 0){
         	cout<< "correctness test passed"<<endl;
     	}else{
         	cout<< "correctness test failed"<<endl;
-        }	
+        }
      }
 
     return return_state;

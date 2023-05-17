@@ -23,7 +23,7 @@ constexpr int MAX_REF_LEN    =      1200;
 constexpr int MAX_QUERY_LEN  =       300;
 constexpr int GPU_ID         =         0;
 
-constexpr unsigned int DATA_SIZE = std::numeric_limits<unsigned int>::max();;
+constexpr unsigned int DATA_SIZE = std::numeric_limits<unsigned int>::max();
 
 // scores
 constexpr short MATCH          =  3;
@@ -145,7 +145,7 @@ main(int argc, char* argv[])
             if(lineR.length() > largestA)
               largestA = lineR.length();
 
-            if(lineQ.length() > largestA)
+            if(lineQ.length() > largestB)
               largestB = lineQ.length();
           }
         }

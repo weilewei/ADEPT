@@ -85,7 +85,7 @@ int main(int argc, char* argv[]){
           if(lineR.length() > largestA)
             largestA = lineR.length();
 
-          if(lineQ.length() > largestA)
+          if(lineQ.length() > largestB)
             largestB = lineQ.length();
         }
       }
@@ -122,7 +122,7 @@ int main(int argc, char* argv[]){
   std::cout << std::endl << "STATUS: Writing results..." << std::endl;
 
   // write the results header
-  results_file << "alignment_scores\t"     << "reference_begin_location\t" << "reference_end_location\t" 
+  results_file << "alignment_scores\t"     << "reference_begin_location\t" << "reference_end_location\t"
                << "query_begin_location\t" << "query_end_location"         << std::endl;
 
   for(int k = 0; k < ref_sequences.size(); k++){
@@ -138,7 +138,7 @@ int main(int argc, char* argv[]){
 
   int return_state = 0;
   if(!verify_correctness(res_file, out_file)) return_state = -1;
-  
+
   if(return_state == 0){
     cout<< "correctness test passed"<<endl;
   }else{

@@ -1,11 +1,11 @@
-cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.22.1 FATAL_ERROR)
 project(adept LANGUAGES CXX CUDA)
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Set a default build type if none was specified
 set(default_build_type "Release")
- 
+
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
     set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE
@@ -17,6 +17,20 @@ endif()
 
 option(BUILD_EXAMPLES "Building Examples" ON)
 option(BUILD_TESTS "Building Tests" ON)
+
+##########################################################################################
+#       Setup STDEXEC
+##########################################################################################
+
+# this is a hack should be automatically detected from the CMAKE_PREFIX_PATH instead of manual
+set(STDEXEC_PATH /global/homes/m/mhaseeb/repos/stdexec/install/)
+
+include_directories(${STDEXEC_PATH}/include)
+link_directories(${STD_EXEC_PATH}/lib64)
+
+# need to add appropriate flags for stdexec
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --experimental-stdpar -std=c++20 --gcc-toolchain=/opt/cray/pe/gcc/12.2.0/bin/ -pthread")
+
 ##########################################################################################
 #       Add subdirectories
 ##########################################################################################
