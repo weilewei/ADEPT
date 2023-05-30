@@ -8,7 +8,13 @@
 #include <thread>
 #include <functional>
 
+#include <stdexec/execution.hpp>
+#include "exec/static_thread_pool.hpp"
+// thread pool size
+
 using namespace std;
+
+constexpr int THREAD_POOL_SIZE =  4;
 
 constexpr int MAX_REF_LEN    =      1200;
 constexpr int MAX_QUERY_LEN  =       300;
@@ -26,6 +32,10 @@ bool verify_correctness(string file1, string file2);
 
 int main(int argc, char* argv[]){
 
+  exec::static_thread_pool pool(THREAD_POOL_SIZE);
+  auto sch = pool.get_scheduler();
+
+  stdexec::sender auto begin = stdexec::schedule(sch); 
   //
   // Print banner
   //
@@ -35,11 +45,11 @@ int main(int argc, char* argv[]){
   std::cout << "-----------------------" << std::endl;
   std::cout <<                               std::endl;
 
-    if (argc < 5)
-    {
-        cout << "USAGE: asynch_sw <reference_file> <query_file> <output_file> <res_file>" << endl;
-        exit(-1);
-    }
+  if (argc < 5)
+  {
+    cout << "USAGE: asynch_sw <reference_file> <query_file> <output_file> <res_file>" << endl;
+    exit(-1);
+  }
 
   string refFile = argv[1];
   string queFile = argv[2];
@@ -47,75 +57,90 @@ int main(int argc, char* argv[]){
   string res_file = argv[4];
 
   vector<string> ref_sequences, que_sequences;
-  string   lineR, lineQ;
 
-  ifstream ref_file(refFile);
-  ifstream quer_file(queFile);
+  stdexec::sender auto process_file_inputs = stdexec::then(begin,[&]() {
+    string   lineR, lineQ;
 
-  unsigned largestA = 0, largestB = 0;
+    ifstream ref_file(refFile);
+    ifstream quer_file(queFile);
 
-  int totSizeA = 0, totSizeB = 0;
+    unsigned largestA = 0, largestB = 0;
 
-  // extract reference sequences
-  if(ref_file.is_open() && quer_file.is_open())
-  {
-    while(getline(ref_file, lineR))
+    int totSizeA = 0, totSizeB = 0;
+
+    // extract reference sequences
+    if(ref_file.is_open() && quer_file.is_open())
     {
-      getline(quer_file, lineQ);
-      if(lineR[0] == '>')
+      while(getline(ref_file, lineR))
       {
-        if (lineR[0] == '>')
-          continue;
+        getline(quer_file, lineQ);
+        if(lineR[0] == '>')
+        {
+          if (lineR[0] == '>')
+            continue;
+          else
+          {
+            std::cout << "FATAL: Mismatch in lines" << std::endl;
+            exit(-2);
+          }
+        }
         else
         {
-          std::cout << "FATAL: Mismatch in lines" << std::endl;
-          exit(-2);
+          if (lineR.length() <= MAX_REF_LEN && lineQ.length() <= MAX_QUERY_LEN)
+          {
+            ref_sequences.push_back(lineR);
+            que_sequences.push_back(lineQ);
+
+            totSizeA += lineR.length();
+            totSizeB += lineQ.length();
+
+            if(lineR.length() > largestA)
+              largestA = lineR.length();
+
+            if(lineQ.length() > largestB)
+              largestB = lineQ.length();
+          }
         }
+        if (ref_sequences.size() == DATA_SIZE)
+            break;
       }
-      else
-      {
-        if (lineR.length() <= MAX_REF_LEN && lineQ.length() <= MAX_QUERY_LEN)
-        {
-          ref_sequences.push_back(lineR);
-          que_sequences.push_back(lineQ);
 
-          totSizeA += lineR.length();
-          totSizeB += lineQ.length();
-
-          if(lineR.length() > largestA)
-            largestA = lineR.length();
-
-          if(lineQ.length() > largestB)
-            largestB = lineQ.length();
-        }
-      }
-      if (ref_sequences.size() == DATA_SIZE)
-          break;
+      ref_file.close();
+      quer_file.close();
     }
 
-    ref_file.close();
-    quer_file.close();
-  }
-
-
-	unsigned batch_size = ADEPT::get_batch_size(GPU_ID, MAX_QUERY_LEN, MAX_REF_LEN, 100);// batch size per GPU
+  });
+  stdexec::sync_wait(process_file_inputs);
 
   ADEPT::driver sw_driver;
-  std::vector<short> scores = {MATCH, MISMATCH};
-  ADEPT::gap_scores gaps(GAP_OPEN, GAP_EXTEND);
 
-  int total_alignments = ref_sequences.size();
-  auto kernel_sel = ADEPT::options::SCORING::ALNS_AND_SCORE;
-  sw_driver.initialize(scores, gaps, ADEPT::options::ALG_TYPE::SW, ADEPT::options::SEQ_TYPE::DNA, ADEPT::options::CIGAR::YES, kernel_sel, MAX_REF_LEN, MAX_QUERY_LEN, total_alignments, batch_size, GPU_ID);
+  stdexec::sender auto adept_init = stdexec::on(sch, stdexec::just() | stdexec::then( [&]() {
 
-  std::cout << "STATUS: Launching driver" << std::endl << std::endl;
+	  unsigned batch_size = ADEPT::get_batch_size(GPU_ID, MAX_QUERY_LEN, MAX_REF_LEN, 100);// batch size per GPU
 
-  sw_driver.kernel_launch(ref_sequences, que_sequences);
-  sw_driver.mem_cpy_dth();
-  sw_driver.dth_synch();
+    std::vector<short> scores = {MATCH, MISMATCH};
+    ADEPT::gap_scores gaps(GAP_OPEN, GAP_EXTEND);
 
+    int total_alignments = ref_sequences.size();
+    sw_driver.initialize(scores, gaps, ADEPT::options::ALG_TYPE::SW, ADEPT::options::SEQ_TYPE::DNA, ADEPT::options::CIGAR::YES, ADEPT::options::SCORING::ALNS_AND_SCORE, MAX_REF_LEN, MAX_QUERY_LEN, total_alignments, batch_size, GPU_ID);
 
-  auto results = sw_driver.get_alignments();
+  }));
+
+  stdexec::sender auto adept_compute = stdexec::then(adept_init, [&]() {
+      std::cout << "STATUS: Launching driver" << std::endl << std::endl;
+      sw_driver.kernel_launch(ref_sequences, que_sequences);
+  })
+  | stdexec::then([&]() {
+    sw_driver.mem_cpy_dth();
+  })
+  | stdexec::then([&]() {
+    sw_driver.dth_synch();
+  })
+  | stdexec::then([&]() {
+    return sw_driver.get_alignments();
+  });
+
+  auto [results] = stdexec::sync_wait(adept_compute).value();
 
   ofstream results_file(out_file);
 
@@ -131,7 +156,7 @@ int main(int argc, char* argv[]){
   }
 
 
-  results.free_results(kernel_sel);
+  results.free_results(ADEPT::options::SCORING::ALNS_AND_SCORE);
 	sw_driver.cleanup();
   results_file.flush();
   results_file.close();
