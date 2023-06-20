@@ -31,7 +31,7 @@ struct ADEPT::adept_stream{
 	cudaStream_t stream;
 	cudaEvent_t kernel_event;
 	cudaEvent_t data_event;
-	
+
 	adept_stream(int gpu){
 		cudaErrchk(cudaSetDevice(gpu));
 		cudaErrchk(cudaStreamCreate(&stream));
@@ -105,7 +105,7 @@ void driver::kernel_launch(std::vector<std::string> &ref_seqs, std::vector<std::
 	if(ref_seqs.size() < batch_size)
 		batch_size = ref_seqs.size();
 	//	std::cerr << "INITIALIZATION ERROR: driver was initialized with wrong number of alignments\n";
-	//preparing offsets 
+	//preparing offsets
 	unsigned running_sum = 0;
 	for(int i = 0; i < batch_size; i++){
 		running_sum +=ref_seqs[i].size();
@@ -116,7 +116,7 @@ void driver::kernel_launch(std::vector<std::string> &ref_seqs, std::vector<std::
 	running_sum = 0;
 	for(int i = 0; i < batch_size; i++){
 		running_sum +=query_seqs[i].size();
-		offset_que[i] = running_sum; 
+		offset_que[i] = running_sum;
 	}
 	total_length_que = offset_que[batch_size - 1];
 
@@ -125,7 +125,7 @@ void driver::kernel_launch(std::vector<std::string> &ref_seqs, std::vector<std::
 	unsigned offsetSumB = 0;
 
  	for(int i = 0; i < batch_size; i++){
-		char* seqptrA = ref_cstr + offsetSumA;  
+		char* seqptrA = ref_cstr + offsetSumA;
 		memcpy(seqptrA, ref_seqs[i].c_str(), ref_seqs[i].size());
 		char* seqptrB = que_cstr + offsetSumB;
 		memcpy(seqptrB, query_seqs[i].c_str(), query_seqs[i].size());
@@ -144,12 +144,12 @@ void driver::kernel_launch(std::vector<std::string> &ref_seqs, std::vector<std::
 
 	if(sequence == ADEPT::options::SEQ_TYPE::AA){
 		kernel::aa_kernel<<<batch_size, minSize, ShmemBytes, curr_stream->stream>>>(ref_cstr_d, que_cstr_d, offset_ref_gpu, offset_query_gpu, ref_start_gpu, ref_end_gpu, query_start_gpu, query_end_gpu, scores_gpu, gap_start, gap_extend, d_scoring_matrix, d_encoding_matrix, false);
-	}else{	
+	}else{
 		kernel::dna_kernel<<<batch_size, minSize, ShmemBytes, curr_stream->stream>>>(ref_cstr_d, que_cstr_d, offset_ref_gpu, offset_query_gpu, ref_start_gpu, ref_end_gpu, query_start_gpu, query_end_gpu, scores_gpu, match_score, mismatch_score, gap_start, gap_extend, false);
 	}
 	mem_copies_dth_mid(ref_end_gpu, results.ref_end , query_end_gpu, results.query_end, res_offset);
 	cudaStreamSynchronize(curr_stream->stream);
-	
+
 	if(kernel_sel == ADEPT::options::SCORING::ALNS_AND_SCORE){
 		int new_length = get_new_min_length(results.ref_end, results.query_end, batch_size);
 
@@ -249,7 +249,7 @@ void driver::cleanup(){
 	cudaStreamDestroy(curr_stream->stream);
 	cudaEventDestroy(curr_stream->kernel_event);
 	cudaEventDestroy(curr_stream->data_event);
-	
+
 	if(sequence == ADEPT::options::SEQ_TYPE::AA){
 		cudaErrchk(cudaFreeHost(encoding_matrix));
 		cudaErrchk(cudaFreeHost(scoring_matrix_cpu));
@@ -359,7 +359,7 @@ ADEPT::aln_results ADEPT::thread_launch(std::vector<std::string> &ref_vec, std::
 		// print progress every 5%
 		//if (i % iter_20 == 0 || i == iterations - 1)
 			//std::cout << "GPU: " << dev_id << " progress = " << i + 1 << "/" << iterations << std::endl << std::flush;
-		
+
 		sw_driver_loc.kernel_launch(its_ref_vecs[i], its_que_vecs[i], i * batch_size);
 		sw_driver_loc.mem_cpy_dth(i * batch_size);
 		sw_driver_loc.dth_synch();
@@ -370,14 +370,21 @@ ADEPT::aln_results ADEPT::thread_launch(std::vector<std::string> &ref_vec, std::
 	return loc_results;
  }
 
+
+int ADEPT::getNumGPUs()
+{
+    int num_gpus;
+    cudaGetDeviceCount(&num_gpus);
+    return num_gpus;
+}
+
 all_alns ADEPT::multi_gpu(std::vector<std::string> &ref_sequences, std::vector<std::string> &que_sequences, ADEPT::options::ALG_TYPE algorithm, ADEPT::options::SEQ_TYPE sequence, ADEPT::options::CIGAR cigar_avail, ADEPT::options::SCORING kernel_sel_, int max_ref_size, int max_que_size, std::vector<short> &scores, gap_scores gaps, int batch_size_){
 	if(batch_size_ == -1)
 		batch_size_ = ADEPT::get_batch_size(0, max_que_size, max_ref_size, 100);
 	int total_alignments = ref_sequences.size();
-  	int num_gpus;
-	cudaGetDeviceCount(&num_gpus);
+  	auto num_gpus = getNumGPUs();
 	unsigned batch_size = batch_size_;
-	
+
 	//total_alignments = alns_per_batch;
 	// std::cout << "Batch Size:"<< batch_size<<std::endl;
 	// std::cout << "Total Alignments:"<< total_alignments<<std::endl;
@@ -418,7 +425,7 @@ all_alns ADEPT::multi_gpu(std::vector<std::string> &ref_sequences, std::vector<s
 
   std::vector<std::thread> threads;
   auto lambda_call = [&](int my_cpu_id){
-	global_results.results[my_cpu_id] = ADEPT::thread_launch(ref_batch_gpu[my_cpu_id], que_batch_gpu[my_cpu_id], algorithm, sequence, cigar_avail, kernel_sel_, max_ref_size, max_que_size, batch_size, my_cpu_id, scores, gaps); 
+	global_results.results[my_cpu_id] = ADEPT::thread_launch(ref_batch_gpu[my_cpu_id], que_batch_gpu[my_cpu_id], algorithm, sequence, cigar_avail, kernel_sel_, max_ref_size, max_que_size, batch_size, my_cpu_id, scores, gaps);
   };
 
   for(int tid = 0; tid < num_gpus; tid++){

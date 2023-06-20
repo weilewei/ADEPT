@@ -51,7 +51,7 @@ namespace options
 		int gpus;
 		all_alns(int count)
 		{
-			results.reserve(count);		
+			results.reserve(count);
 			// insert dummy aln_results here
 			for (int i = 0; i < count; i++)
 				results.push_back(aln_results());
@@ -109,6 +109,7 @@ namespace options
 			void set_gap_scores(short _gap_open, short _gap_extend);
 	};
 
+	int getNumGPUs();
 	aln_results thread_launch(std::vector<std::string> &ref_vec, std::vector<std::string> &que_vec, ADEPT::options::ALG_TYPE algorithm, ADEPT::options::SEQ_TYPE sequence, ADEPT::options::CIGAR cigar_avail, ADEPT::options::SCORING kernel_sel_, int max_ref_size, int max_que_size, int batch_size, int dev_id, std::vector<short> &scores, gap_scores gaps);
 
 	all_alns multi_gpu(std::vector<std::string> &ref_sequences, std::vector<std::string> &que_sequences, ADEPT::options::ALG_TYPE algorithm, ADEPT::options::SEQ_TYPE sequence, ADEPT::options::CIGAR cigar_avail, ADEPT::options::SCORING kernel_sel_, int max_ref_size, int max_que_size, std::vector<short> &scores, gap_scores gaps, int batch_size_ = -1);
